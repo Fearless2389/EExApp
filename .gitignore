@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Generated experiment outputs. Everything here is reproducible from the code
+# in experiments/. Figures and summary tables that go into the report are
+# copied to experiments/figures/, which IS committed.
+experiments/results/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
