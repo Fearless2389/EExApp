@@ -62,6 +62,11 @@ class RadioUnit:
     energy: Optional[RuEnergyAccounting] = field(default=None, repr=False)
     _was_sleeping: bool = False
 
+    # PRB utilisation over this RU's awake slots in the previous step. Weights
+    # the interference it causes to neighbours. Starts at 1 (full buffer), the
+    # conservative assumption before anything has been measured.
+    last_active_utilisation: float = 1.0
+
     def __post_init__(self) -> None:
         if self.slice_prb_fraction is None:
             self.slice_prb_fraction = np.full(self.n_slices, 1.0 / self.n_slices)
@@ -114,6 +119,7 @@ class UserEquipment:
 
     serving_ru: int = 0
     heading_rad: float = 0.0
+    home_centre: np.ndarray = field(default_factory=lambda: np.zeros(2), repr=False)
 
     # Most recent per-step radio measurements, filled in by the scheduler.
     last_cqi: int = 0
@@ -187,21 +193,34 @@ class Network:
         cfg = self.cfg
         rates = assign_traffic_rates(cfg.n_ue, TRAFFIC_LEVELS[cfg.traffic_level], self.rng)
 
-        # Scatter UEs over a disc covering every cell.
-        span = cfg.cell_radius_m + (cfg.inter_site_distance_m if cfg.n_ru > 1 else 0.0)
-        radii = span * np.sqrt(self.rng.uniform(0.02, 1.0, size=cfg.n_ue))
-        angles = self.rng.uniform(0.0, 2.0 * np.pi, size=cfg.n_ue)
+        # Single RU: UEs uniform over a disc of cell_radius around it.
+        # Several RUs: each UE is dropped uniformly within cell_radius of a
+        # randomly chosen RU. Cells overlap because cell_radius is comparable
+        # to the inter-site distance, but no UE is placed in a gap outside
+        # every cell - which a single big disc around the centre site does for
+        # a large share of UEs, and which no planned deployment would have.
+        # The single-RU branch is unchanged so single-RU results are identical.
+        if cfg.n_ru == 1:
+            radii = cfg.cell_radius_m * np.sqrt(self.rng.uniform(0.02, 1.0, size=cfg.n_ue))
+            angles = self.rng.uniform(0.0, 2.0 * np.pi, size=cfg.n_ue)
+            centres = np.zeros((cfg.n_ue, 2))
+        else:
+            home = self.rng.integers(0, cfg.n_ru, size=cfg.n_ue)
+            radii = cfg.cell_radius_m * np.sqrt(self.rng.uniform(0.02, 1.0, size=cfg.n_ue))
+            angles = self.rng.uniform(0.0, 2.0 * np.pi, size=cfg.n_ue)
+            centres = np.stack([self.rus[h].position for h in home])
 
         ues: List[UserEquipment] = []
         for i in range(cfg.n_ue):
             ues.append(
                 UserEquipment(
                     ue_id=i,
-                    position=np.array([radii[i] * np.cos(angles[i]), radii[i] * np.sin(angles[i])]),
+                    position=centres[i] + np.array([radii[i] * np.cos(angles[i]), radii[i] * np.sin(angles[i])]),
                     # Even distribution across slices, matching the paper.
                     slice_id=i % cfg.n_slices,
                     traffic=TrafficSource(rate_mbps=float(rates[i]), packet_bytes=UDP_PACKET_BYTES),
                     heading_rad=float(self.rng.uniform(0.0, 2.0 * np.pi)),
+                    home_centre=centres[i].copy(),
                 )
             )
         return ues
@@ -270,7 +289,11 @@ class Network:
         if cfg.ue_speed_mps <= 0.0:
             return
 
-        span = cfg.cell_radius_m + (cfg.inter_site_distance_m if cfg.n_ru > 1 else 0.0)
+        # Each UE roams within cell_radius of its home centre: the origin for a
+        # single RU (identical to the original behaviour), its home RU when
+        # there are several. A walk bounded only by one big disc would, over a
+        # long training run, drift UEs back into the gaps between cells.
+        limit = cfg.cell_radius_m
         step_m = cfg.ue_speed_mps * duration_ms / 1000.0
 
         for ue in self.ues:
@@ -278,10 +301,12 @@ class Network:
             ue.position = ue.position + step_m * np.array(
                 [np.cos(ue.heading_rad), np.sin(ue.heading_rad)]
             )
-            # Reflect at the boundary by turning back towards the centre.
-            if np.linalg.norm(ue.position) > span:
-                ue.heading_rad = float(np.arctan2(-ue.position[1], -ue.position[0]))
-                ue.position = ue.position * (span / np.linalg.norm(ue.position))
+            # Reflect at the boundary by turning back towards the home centre.
+            rel = ue.position - ue.home_centre
+            dist = np.linalg.norm(rel)
+            if dist > limit:
+                ue.heading_rad = float(np.arctan2(-rel[1], -rel[0]))
+                ue.position = ue.home_centre + rel * (limit / dist)
 
     def ues_of_ru(self, ru_id: int) -> List[UserEquipment]:
         return [u for u in self.ues if u.serving_ru == ru_id]
@@ -296,6 +321,7 @@ class Network:
             ue.queue.reset()
         for ru in self.rus:
             ru.energy.reset()
+            ru.last_active_utilisation = 1.0
             ru.set_sleep_schedule(self.n_dl_slots, 0, 0)
             ru.set_slice_allocation(np.full(self.n_slices, 1.0 / self.n_slices))
         self.time_ms = 0.0

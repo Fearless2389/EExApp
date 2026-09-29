@@ -175,6 +175,31 @@ class RadioParams:
     # Minimum SINR (dB) for rank 2, 3 and 4 respectively.
     rank_sinr_thresholds_db: tuple = (8.0, 15.0, 20.0)
 
+    # Load-coupled interference. An awake RU only interferes on the PRBs it
+    # actually schedules, so each interferer is weighted by its PRB
+    # utilisation over its awake slots in the previous step (the standard
+    # load-coupling model). Setting this False gives the "full-buffer" worst
+    # case, in which every awake RU transmits on every PRB regardless of load;
+    # that made a 4-cell layout interference-limited to ~0 dB at the cell edge
+    # and left half the UEs in violation before any RU slept. Only matters
+    # with more than one RU.
+    load_coupled_interference: bool = True
+    min_interference_load: float = 0.05  # control and reference signals never stop
+
+    # Propagation environment.
+    #   "los"        UMi Street Canyon LOS at every distance. Matches the
+    #                baseline's 12 x 16 m indoor lab, where every link is
+    #                line-of-sight. Default, used for the single-RU study.
+    #   "umi_mixed"  3GPP TR 38.901 UMi with the distance-dependent LOS
+    #                probability P_LOS(d) = min(18/d, 1)(1 - e^{-d/36}) + e^{-d/36};
+    #                the path gain is the P_LOS-weighted mean of the LOS and
+    #                NLOS gains (NLOS: 22.4 + 35.3 log10 d + 21.3 log10 f).
+    #                Used for multi-cell deployments: with LOS everywhere the
+    #                exponent of 2.1 lets interference from a neighbour 100 m
+    #                away barely decay, which drove SINR to ~0 dB even for UEs
+    #                30 m from their own RU.
+    propagation: str = "los"
+
     @property
     def prb_bandwidth_hz(self) -> float:
         """A PRB is 12 subcarriers wide."""

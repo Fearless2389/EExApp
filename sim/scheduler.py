@@ -171,10 +171,19 @@ def run_step(net: Network) -> StepTelemetry:
     # few distinct awake patterns, so compute each pattern's link state once.
     link_cache: Dict[bytes, tuple] = {}
 
+    # Interference weight of each RU: its PRB utilisation while awake in the
+    # previous step (load coupling), or 1 for the full-buffer worst case.
+    if radio.load_coupled_interference:
+        load = np.array(
+            [max(radio.min_interference_load, min(1.0, ru.last_active_utilisation)) for ru in net.rus]
+        )
+    else:
+        load = np.ones(n_ru)
+
     def link_state(awake: np.ndarray) -> tuple:
         key = awake.tobytes()
         if key not in link_cache:
-            awake_lin = rsrp_lin * awake[None, :]
+            awake_lin = rsrp_lin * (awake * load)[None, :]
             own = awake_lin[np.arange(n_ue), serving]
             interference = np.maximum(awake_lin.sum(axis=1) - own, 0.0)
             sinr = lin_to_db(serving_rsrp_lin / (interference + noise_lin))
@@ -300,6 +309,14 @@ def run_step(net: Network) -> StepTelemetry:
         dropped[i] = st["dropped_bytes"]
         queued[i] = st["queued_bytes"]
         delay[i] = st["delay_ms"]
+
+    # Utilisation over awake slots only, which is what a neighbour experiences
+    # as interference. Sleep slots cause no interference and are excluded.
+    for ru in net.rus:
+        if ru.energy.active_slots > 0:
+            ru.last_active_utilisation = float(
+                prb_used_per_ru[ru.ru_id] / (ru.energy.active_slots * radio.n_prb)
+            )
 
     duration_s = cfg.step_duration_ms / 1000.0
     throughput_mbps = served * 8.0 / duration_s / 1e6

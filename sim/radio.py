@@ -61,13 +61,22 @@ def path_loss_db(distance_m: np.ndarray, radio: RadioParams, shadowing_db: np.nd
     does not receive an unphysical amount of power.
     """
     d = np.maximum(np.asarray(distance_m, dtype=float), 1.0)
-    pl = (
+    pl_los = (
         radio.pathloss_intercept_db
         + radio.pathloss_exponent_factor * np.log10(d)
         + 20.0 * np.log10(radio.carrier_freq_ghz)
-        + np.asarray(shadowing_db, dtype=float)
     )
-    return np.maximum(pl, radio.min_coupling_loss_db)
+    if radio.propagation == "los":
+        pl = pl_los
+    elif radio.propagation == "umi_mixed":
+        # 3GPP TR 38.901 Tables 7.4.1-1 and 7.4.2-1, UMi Street Canyon.
+        pl_nlos = np.maximum(pl_los, 22.4 + 35.3 * np.log10(d) + 21.3 * np.log10(radio.carrier_freq_ghz))
+        p_los = np.minimum(18.0 / d, 1.0) * (1.0 - np.exp(-d / 36.0)) + np.exp(-d / 36.0)
+        gain = p_los * 10.0 ** (-pl_los / 10.0) + (1.0 - p_los) * 10.0 ** (-pl_nlos / 10.0)
+        pl = -10.0 * np.log10(gain)
+    else:
+        raise ValueError(f"unknown propagation model {radio.propagation!r}")
+    return np.maximum(pl + np.asarray(shadowing_db, dtype=float), radio.min_coupling_loss_db)
 
 
 def rsrp_dbm(distance_m: np.ndarray, radio: RadioParams, shadowing_db: np.ndarray | float = 0.0) -> np.ndarray:

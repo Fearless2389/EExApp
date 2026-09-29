@@ -15,3 +15,7 @@ experiments/results/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Crops of the baseline paper's own figures, used side by side in the report.
+# Not ours to redistribute, so kept out of the public repository.
+experiments/figures/paper_*.png
