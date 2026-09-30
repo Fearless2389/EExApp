@@ -1,0 +1,126 @@
+{
+ "light_4ru": {
+  "indep": {
+   "reward": 0.7611038954167318,
+   "violation": 0.002013888888888889,
+   "energy_saved": 0.4818596078618471,
+   "sleep_ratio": 0.7857142857142856,
+   "uncovered": 0.0027480158730158726,
+   "coverage_penalty": 0.02198412698412698
+  },
+  "gnn_noedge": {
+   "reward": 0.6601968116284523,
+   "violation": 0.007291666666666666,
+   "energy_saved": 0.5108540290538041,
+   "sleep_ratio": 0.8333333333333334,
+   "uncovered": 0.020646329365079364,
+   "coverage_penalty": 0.1651706349206349
+  },
+  "gnn": {
+   "reward": 0.7595033706499863,
+   "violation": 0.0038194444444444448,
+   "energy_saved": 0.49609854136949166,
+   "sleep_ratio": 0.8095238095238093,
+   "uncovered": 0.005558531746031746,
+   "coverage_penalty": 0.04446825396825397
+  },
+  "sync": {
+   "b": 11.0,
+   "stagger": 0.0,
+   "reward": 0.7852349846920509,
+   "violation": 0.0,
+   "energy_saved": 0.48212994452960617,
+   "sleep_ratio": 0.7857142857142857,
+   "uncovered": 4.910714285714286e-05,
+   "coverage_penalty": 0.0003928571428571429
+  },
+  "stagger": {
+   "b": 7.0,
+   "stagger": 1.0,
+   "reward": 0.42288404929329926,
+   "violation": 0.0,
+   "energy_saved": 0.30478486969774293,
+   "sleep_ratio": 0.5,
+   "uncovered": 0.009638392857142858,
+   "coverage_penalty": 0.07710714285714286
+  }
+ },
+ "medium_4ru": {
+  "indep": {
+   "reward": -0.7643327008349928,
+   "violation": 0.15548611111111113,
+   "energy_saved": 0.29886774638376795,
+   "sleep_ratio": 0.5237698412698414,
+   "uncovered": 0.10585317460317462,
+   "coverage_penalty": 0.8468253968253969
+  },
+  "gnn_noedge": {
+   "reward": -0.6388052837820991,
+   "violation": 0.14229166666666668,
+   "energy_saved": 0.26881431522961696,
+   "sleep_ratio": 0.4761904761904761,
+   "uncovered": 0.09228869047619047,
+   "coverage_penalty": 0.7383095238095237
+  },
+  "gnn": {
+   "reward": -0.5256501441968623,
+   "violation": 0.1322222222222222,
+   "energy_saved": 0.2554578618017034,
+   "sleep_ratio": 0.4523015873015872,
+   "uncovered": 0.08137301587301586,
+   "coverage_penalty": 0.6509841269841269
+  }
+ },
+ "light_7ru_zeroshot": {
+  "indep": {
+   "reward": 0.46839219880954447,
+   "violation": 0.03488095238095237,
+   "energy_saved": 0.48008003185405573,
+   "sleep_ratio": 0.7857142857142856,
+   "uncovered": 0.03054251700680272,
+   "coverage_penalty": 0.2443401360544217
+  },
+  "gnn_noedge": {
+   "reward": 0.06399154912226261,
+   "violation": 0.0823015873015873,
+   "energy_saved": 0.5076403044855803,
+   "sleep_ratio": 0.8333333333333334,
+   "uncovered": 0.07647902494331066,
+   "coverage_penalty": 0.6118321995464853
+  },
+  "gnn": {
+   "reward": 0.1515324389414325,
+   "violation": 0.07325396825396825,
+   "energy_saved": 0.49293930597139607,
+   "sleep_ratio": 0.8095238095238093,
+   "uncovered": 0.06366950113378685,
+   "coverage_penalty": 0.5093560090702948
+  }
+ },
+ "medium_7ru_zeroshot": {
+  "indep": {
+   "reward": -2.066146270914228,
+   "violation": 0.3731746031746031,
+   "energy_saved": 0.2866829908201048,
+   "sleep_ratio": 0.5223129251700681,
+   "uncovered": 0.18434098639455784,
+   "coverage_penalty": 1.4747278911564623
+  },
+  "gnn_noedge": {
+   "reward": -2.071188247742248,
+   "violation": 0.39031746031746034,
+   "energy_saved": 0.25652848662881667,
+   "sleep_ratio": 0.4761904761904761,
+   "uncovered": 0.17912046485260769,
+   "coverage_penalty": 1.4329637188208615
+  },
+  "gnn": {
+   "reward": -1.9485224029345067,
+   "violation": 0.3736507936507936,
+   "energy_saved": 0.24307365797798375,
+   "sleep_ratio": 0.45226757369614506,
+   "uncovered": 0.1685756802721088,
+   "coverage_penalty": 1.3486054421768705
+  }
+ }
+}
