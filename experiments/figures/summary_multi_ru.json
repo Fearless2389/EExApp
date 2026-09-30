@@ -69,6 +69,26 @@
    "sleep_ratio": 0.4523015873015872,
    "uncovered": 0.08137301587301586,
    "coverage_penalty": 0.6509841269841269
+  },
+  "sync": {
+   "b": 4.0,
+   "stagger": 0.0,
+   "reward": 0.2402611876197064,
+   "violation": 0.007291666666666667,
+   "energy_saved": 0.16423419466086406,
+   "sleep_ratio": 0.28571428571428564,
+   "uncovered": 0.004392857142857143,
+   "coverage_penalty": 0.03514285714285714
+  },
+  "stagger": {
+   "b": 7.0,
+   "stagger": 1.0,
+   "reward": 0.3050338612813712,
+   "violation": 0.000625,
+   "energy_saved": 0.3014361842715703,
+   "sleep_ratio": 0.5,
+   "uncovered": 0.024174107142857143,
+   "coverage_penalty": 0.19339285714285714
   }
  },
  "light_7ru_zeroshot": {
