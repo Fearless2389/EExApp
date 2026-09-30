@@ -131,6 +131,19 @@ def metric(runs, method, scenario, key) -> np.ndarray:
     return np.array([r["eval"][key] for r in runs.get(method, {}).get(scenario, [])], dtype=float)
 
 
+def online(runs, method, scenario, key) -> np.ndarray:
+    """Per-seed mean of a training-curve quantity over the whole online run.
+
+    ``online(..., "violation")`` is the share of UE-steps violating QoS while
+    the agent was learning in the live network - the operational cost of
+    training online. After training, every learned method's evaluation
+    violations are ~0, so this is where methods differ on QoS.
+    """
+    return np.array(
+        [np.mean(r["curve"][key]) for r in runs.get(method, {}).get(scenario, [])], dtype=float
+    )
+
+
 # ---------------------------------------------------------------------------
 # Figure 5 - convergence
 # ---------------------------------------------------------------------------
@@ -232,7 +245,7 @@ def fig7(runs) -> None:
         for i, m in enumerate(FIG7_METHODS):
             means, sds = [], []
             for n in SLICES:
-                v = metric(runs, m, scen(level, n), "violation") * 100
+                v = online(runs, m, scen(level, n), "violation") * 100
                 means.append(v.mean() if v.size else np.nan)
                 sds.append(v.std() if v.size else 0.0)
             top = max(top, np.nanmax(np.array(means) + np.array(sds)))
@@ -250,10 +263,13 @@ def fig7(runs) -> None:
         ax.set_xticklabels([str(n) for n in SLICES])
         ax.set_xlabel("Number of slices")
         ax.set_title(level.capitalize())
-    axes[0].set_ylabel("QoS violations (%)")
+    axes[0].set_ylabel("QoS violations during\nonline training (%)")
     axes[0].set_ylim(0, max(5.0, top * 1.15))
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=6, fontsize=8.5, bbox_to_anchor=(0.5, 1.08))
+    fig.text(0.5, -0.04, "Share of UE-steps violating QoS over the 2000-step online learning run "
+             "(mean of 5 seeds, bar = 1 s.d.). After training, all learned methods evaluate at ~0%.",
+             ha="center", fontsize=8.5, color=INK_2)
     fig.tight_layout()
     fig.savefig(os.path.join(FIG_DIR, "fig7_qos_violation.png"))
     plt.close(fig)
@@ -411,6 +427,57 @@ def build_tables(runs, oracle) -> str:
                 cells.append(fmt(v.mean(), v.std(), pct=True) if v.size else "-")
             lines.append(f"| {s} | " + " | ".join(cells) + " |")
     lines.append("")
+
+    # Online training cost (Figure 7 table)
+    lines += ["## Table C2 - QoS violation (%) during online training - the data behind Figure 7", "",
+              "Mean over the whole 2000-step learning run, while the agent explores in the live network.", "",
+              "| Scenario | " + " | ".join(LABEL[m] for m in methods) + " |",
+              "|---|" + "---|" * len(methods)]
+    for level in LEVELS:
+        for n in SLICES:
+            s = scen(level, n)
+            cells = []
+            for m in methods:
+                v = online(runs, m, s, "violation")
+                cells.append(fmt(v.mean(), v.std(), pct=True) if v.size else "-")
+            lines.append(f"| {s} | " + " | ".join(cells) + " |")
+    auc_row, vio_row = [], []
+    for m in methods:
+        a = [x for lv in LEVELS for n in SLICES for x in online(runs, m, scen(lv, n), "reward")]
+        v = [x for lv in LEVELS for n in SLICES for x in online(runs, m, scen(lv, n), "violation")]
+        auc_row.append(fmt(np.mean(a)) if a else "-")
+        vio_row.append(fmt(np.mean(v), pct=True) if v else "-")
+        summary.setdefault("online", {})[m] = {"violation": float(np.mean(v)) if v else None,
+                                               "reward_auc": float(np.mean(a)) if a else None}
+    lines.append("| **All scenarios** | " + " | ".join(vio_row) + " |")
+    lines += ["", "Mean training reward over the whole run (area under the learning curve; higher = "
+              "more reward collected while learning):", "",
+              "| " + " | ".join(LABEL[m] for m in methods) + " |", "|" + "---|" * len(methods),
+              "| " + " | ".join(auc_row) + " |", ""]
+    for base in ["eexapp", "eexapp_plus", "sasc"]:
+        dv, da = [], []
+        for lv in LEVELS:
+            for n in SLICES:
+                s = scen(lv, n)
+                g, b = online(runs, "gnn", s, "violation"), online(runs, base, s, "violation")
+                ga, ba = online(runs, "gnn", s, "reward"), online(runs, base, s, "reward")
+                if g.size and b.size:
+                    dv.append(g.mean() - b.mean())
+                    da.append(ga.mean() - ba.mean())
+        if len(dv) >= 3:
+            summary.setdefault("online_tests", {})[base] = {
+                "violation_diff": float(np.mean(dv)), "violation_lower_in": int(np.sum(np.array(dv) < 0)),
+                "violation_p": float(stats.wilcoxon(dv).pvalue),
+                "auc_diff": float(np.mean(da)), "auc_higher_in": int(np.sum(np.array(da) > 0)),
+                "auc_p": float(stats.wilcoxon(da).pvalue), "n": len(dv)}
+    if "online_tests" in summary:
+        lines += ["Ours vs baselines during online training (Wilcoxon signed-rank over the nine scenario means):", "",
+                  "| Ours vs | Violation diff (pp) | Scenarios where ours violates less | p | "
+                  "Training-reward diff | Scenarios where ours collects more | p |", "|---|---|---|---|---|---|---|"]
+        for base, v in summary["online_tests"].items():
+            lines.append(f"| {LABEL[base]} | {100 * v['violation_diff']:+.2f} | {v['violation_lower_in']} / {v['n']} | "
+                         f"{v['violation_p']:.3f} | {v['auc_diff']:+.3f} | {v['auc_higher_in']} / {v['n']} | {v['auc_p']:.3f} |")
+        lines.append("")
 
     # Convergence speed (Figure 5 table)
     lines += ["## Table D - Steps to reach 90% of final training reward - the data behind Figure 5", "",
